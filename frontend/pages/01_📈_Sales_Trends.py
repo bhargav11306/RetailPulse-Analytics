@@ -4,15 +4,15 @@ import plotly.express as px
 from pathlib import Path
 
 st.set_page_config(page_title="Sales Trends", layout="wide")
-st.title("📈 Sales Performance & Revenue Trends")
+st.title("📈 Sales Performance & Trends")
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-tx_path = BASE_DIR / "processed" / "RetailPulse_Cleaned_Transactions.csv"
+data_path = BASE_DIR / "processed" / "RetailPulse_Cleaned_Transactions.csv"
 
-if tx_path.exists():
-    df_tx = pd.read_csv(tx_path)
-    monthly = df_tx.groupby('YearMonth')['TotalPrice'].sum().reset_index()
-    fig = px.line(monthly, x='YearMonth', y='TotalPrice', title="Monthly Sales Revenue Trajectory ($)", markers=True)
+if data_path.exists():
+    df = pd.read_csv(data_path)
+    monthly_sales = df.groupby('YearMonth')['TotalPrice'].sum().reset_index()
+    fig = px.bar(monthly_sales, x='YearMonth', y='TotalPrice', title="Monthly Sales Distribution ($)", color='TotalPrice')
     st.plotly_chart(fig, use_container_width=True)
 else:
-    st.error("Data file not found. Ensure RetailPulse_Cleaned_Transactions.csv exists in processed/.")
+    st.error("Data file missing at processed/RetailPulse_Cleaned_Transactions.csv")

@@ -1,34 +1,72 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from pathlib import Path
 
-st.set_page_config(
-    page_title="RetailPulse - Executive Dashboard",
-    page_icon="🚀",
-    layout="wide"
-)
+# 1. Page Configuration
+st.set_page_config(page_title="RetailPulse Dashboard", layout="wide", page_icon="🛍️")
 
-st.title("🚀 RetailPulse: Executive Summary Dashboard")
-st.markdown("Use the vertical navigation menu on the left sidebar to switch between analytics pages.")
+# 2. Custom CSS Animations (Hover effects & fade-in)
+st.markdown("""
+    <style>
+    /* Metric Card Styling & Hover Animation */
+    div[data-testid="stMetric"] {
+        background-color: #1e222d;
+        border: 1px solid #2e364f;
+        padding: 18px;
+        border-radius: 12px;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-6px);
+        border-color: #ff4b4b;
+        box-shadow: 0px 8px 20px rgba(255, 75, 75, 0.25);
+    }
+    
+    /* Fade-In Header Animation */
+    @keyframes fadeIn {
+        0% { opacity: 0; transform: translateY(-10px); }
+        100% { opacity: 1; transform: translateY(0); }
+    }
+    .main-title {
+        animation: fadeIn 0.8s ease-in-out;
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #FFFFFF;
+    }
+    </style>
+    <h1 class="main-title">🛍️ RetailPulse Executive Analytics</h1>
+""", unsafe_allow_html=True)
 
+st.markdown("Welcome to the RetailPulse AI Analytics & Demand Platform.")
+
+# 3. Data Processing
 BASE_DIR = Path(__file__).resolve().parent.parent
-tx_path = BASE_DIR / "processed" / "RetailPulse_Cleaned_Transactions.csv"
-rfm_path = BASE_DIR / "processed" / "Customer_RFM_Segments.csv"
+data_path = BASE_DIR / "processed" / "RetailPulse_Cleaned_Transactions.csv"
 
-if tx_path.exists() and rfm_path.exists():
-    df_tx = pd.read_csv(tx_path)
-    df_rfm = pd.read_csv(rfm_path)
+if data_path.exists():
+    df = pd.read_csv(data_path)
     
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Revenue", f"${df_tx['TotalPrice'].sum():,.2f}")
-    c2.metric("Total Orders", f"{df_tx['Invoice'].nunique():,}")
-    c3.metric("Active Customers", f"{df_rfm['CustomerID'].nunique():,}")
+    # Auto-detect Customer ID column name
+    cust_col = next((col for col in ['CustomerID', 'Customer_ID', 'Customer ID'] if col in df.columns), None)
+    unique_custs = df[cust_col].nunique() if cust_col else "N/A"
     
-    at_risk = len(df_rfm[df_rfm['Churn_Probability'] >= 0.70])
-    c4.metric("At-Risk Customers", f"{at_risk:,}", delta="-High Risk", delta_color="inverse")
+    # Display animated metric cards
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Transactions", f"{len(df):,}")
+    col2.metric("Total Revenue", f"${df['TotalPrice'].sum():,.2f}")
+    col3.metric("Unique Customers", f"{unique_custs:,}" if isinstance(unique_custs, int) else unique_custs)
+    col4.metric("Avg Order Value", f"${df['TotalPrice'].mean():,.2f}")
+
+    st.subheader("📊 Executive Revenue Trajectory")
     
-    st.markdown("---")
-    st.subheader("Data Quality Verification")
-    st.write(f"Loaded **{len(df_tx):,}** clean transactions across **{df_tx['Country'].nunique()}** countries.")
+    with st.spinner("🔄 Loading animated revenue insights..."):
+        if 'YearMonth' in df.columns:
+            monthly_sales = df.groupby('YearMonth')['TotalPrice'].sum().reset_index()
+            fig = px.line(monthly_sales, x='YearMonth', y='TotalPrice', markers=True, title="Monthly Revenue ($)")
+            fig.update_layout(template="plotly_dark", transition_duration=500)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.dataframe(df.head(50), use_container_width=True)
 else:
-    st.error("Missing cleaned CSV files in `processed/`. Please execute `python notebooks/01_preprocessing.py` first.")
+    st.warning("⚠️ Cleaned data file not found in `processed/RetailPulse_Cleaned_Transactions.csv`.")
