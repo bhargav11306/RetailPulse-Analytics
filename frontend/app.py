@@ -1,72 +1,57 @@
 import streamlit as st
-import pandas as pd
-import plotly.express as px
-from pathlib import Path
 
-# 1. Page Configuration
-st.set_page_config(page_title="RetailPulse Dashboard", layout="wide", page_icon="🛍️")
+# Initialize session state for user session tracking
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+if "users_db" not in st.session_state:
+    # Dummy user database (Username: Password)
+    st.session_state["users_db"] = {"admin": "admin123", "bhargav": "retailpulse2026"}
 
-# 2. Custom CSS Animations (Hover effects & fade-in)
-st.markdown("""
-    <style>
-    /* Metric Card Styling & Hover Animation */
-    div[data-testid="stMetric"] {
-        background-color: #1e222d;
-        border: 1px solid #2e364f;
-        padding: 18px;
-        border-radius: 12px;
-        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    }
-    div[data-testid="stMetric"]:hover {
-        transform: translateY(-6px);
-        border-color: #ff4b4b;
-        box-shadow: 0px 8px 20px rgba(255, 75, 75, 0.25);
-    }
+def show_auth_page():
+    st.title("🔐 RetailPulse - Authentication")
     
-    /* Fade-In Header Animation */
-    @keyframes fadeIn {
-        0% { opacity: 0; transform: translateY(-10px); }
-        100% { opacity: 1; transform: translateY(0); }
-    }
-    .main-title {
-        animation: fadeIn 0.8s ease-in-out;
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: #FFFFFF;
-    }
-    </style>
-    <h1 class="main-title">🛍️ RetailPulse Executive Analytics</h1>
-""", unsafe_allow_html=True)
-
-st.markdown("Welcome to the RetailPulse AI Analytics & Demand Platform.")
-
-# 3. Data Processing
-BASE_DIR = Path(__file__).resolve().parent.parent
-data_path = BASE_DIR / "processed" / "RetailPulse_Cleaned_Transactions.csv"
-
-if data_path.exists():
-    df = pd.read_csv(data_path)
+    tab1, tab2 = st.tabs(["Sign In", "Sign Up"])
     
-    # Auto-detect Customer ID column name
-    cust_col = next((col for col in ['CustomerID', 'Customer_ID', 'Customer ID'] if col in df.columns), None)
-    unique_custs = df[cust_col].nunique() if cust_col else "N/A"
-    
-    # Display animated metric cards
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Transactions", f"{len(df):,}")
-    col2.metric("Total Revenue", f"${df['TotalPrice'].sum():,.2f}")
-    col3.metric("Unique Customers", f"{unique_custs:,}" if isinstance(unique_custs, int) else unique_custs)
-    col4.metric("Avg Order Value", f"${df['TotalPrice'].mean():,.2f}")
+    with tab1:
+        st.subheader("Sign In")
+        username = st.text_input("Username", key="signin_user")
+        password = st.text_input("Password", type="password", key="signin_pass")
+        if st.button("Sign In"):
+            users = st.session_state["users_db"]
+            if username in users and users[username] == password:
+                st.session_state["authenticated"] = True
+                st.session_state["username"] = username
+                st.success(f"Welcome back, {username}!")
+                st.rerun()
+            else:
+                st.error("Invalid username or password.")
 
-    st.subheader("📊 Executive Revenue Trajectory")
-    
-    with st.spinner("🔄 Loading animated revenue insights..."):
-        if 'YearMonth' in df.columns:
-            monthly_sales = df.groupby('YearMonth')['TotalPrice'].sum().reset_index()
-            fig = px.line(monthly_sales, x='YearMonth', y='TotalPrice', markers=True, title="Monthly Revenue ($)")
-            fig.update_layout(template="plotly_dark", transition_duration=500)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.dataframe(df.head(50), use_container_width=True)
+    with tab2:
+        st.subheader("Create an Account")
+        new_user = st.text_input("New Username", key="signup_user")
+        new_pass = st.text_input("New Password", type="password", key="signup_pass")
+        confirm_pass = st.text_input("Confirm Password", type="password", key="confirm_pass")
+        if st.button("Sign Up"):
+            if new_user in st.session_state["users_db"]:
+                st.warning("Username already exists.")
+            elif new_pass != confirm_pass:
+                st.error("Passwords do not match.")
+            elif new_user and new_pass:
+                st.session_state["users_db"][new_user] = new_pass
+                st.success("Account created successfully! Please Sign In.")
+            else:
+                st.error("Please fill in all fields.")
+
+# Authentication Gatekeeper
+if not st.session_state["authenticated"]:
+    show_auth_page()
 else:
-    st.warning("⚠️ Cleaned data file not found in `processed/RetailPulse_Cleaned_Transactions.csv`.")
+    # Sidebar Logout Button
+    st.sidebar.write(f"Logged in as: **{st.session_state['username']}**")
+    if st.sidebar.button("Log Out"):
+        st.session_state["authenticated"] = False
+        st.rerun()
+        
+    # --- YOUR EXISTING DASHBOARD CODE GOES HERE ---
+    st.title("📊 RetailPulse Analytics Dashboard")
+    # (Rest of your tabs, charts, and metrics...)
